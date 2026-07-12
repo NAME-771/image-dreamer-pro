@@ -3,60 +3,72 @@ export type AIModel = {
   name: string;
   description: string;
   supportsEdit: boolean;
+  provider: "lovable" | "hf";
   badge?: string;
 };
 
+// Lovable AI Gateway models: no per-model limits, billed via workspace credits.
+// HF models: use HF_TOKEN, subject to HF rate limits.
 export const MODELS: AIModel[] = [
   {
+    id: "google/gemini-3-pro-image",
+    name: "Gemini 3 Pro",
+    description: "Yuqori sifat, mukammal yuzlar",
+    supportsEdit: true,
+    provider: "lovable",
+    badge: "Limitsiz",
+  },
+  {
+    id: "google/gemini-3.1-flash-image",
+    name: "Nano Banana 2",
+    description: "Tez, pro darajadagi sifat",
+    supportsEdit: true,
+    provider: "lovable",
+    badge: "Limitsiz",
+  },
+  {
+    id: "google/gemini-2.5-flash-image",
+    name: "Nano Banana",
+    description: "Tez tahrirlash uchun ideal",
+    supportsEdit: true,
+    provider: "lovable",
+    badge: "Limitsiz",
+  },
+  {
+    id: "openai/gpt-image-2",
+    name: "GPT Image 2",
+    description: "OpenAI eng kuchli image modeli",
+    supportsEdit: true,
+    provider: "lovable",
+    badge: "Limitsiz",
+  },
+  {
+    id: "openai/gpt-image-1-mini",
+    name: "GPT Image Mini",
+    description: "Tejamkor, tez OpenAI",
+    supportsEdit: true,
+    provider: "lovable",
+    badge: "Limitsiz",
+  },
+  {
     id: "black-forest-labs/FLUX.1-schnell",
-    name: "FLUX.1 Schnell",
-    description: "Ultra tez, yuqori sifat",
+    name: "FLUX Schnell",
+    description: "Ultra tez badiiy rasm",
     supportsEdit: false,
-    badge: "Tez",
+    provider: "hf",
   },
   {
     id: "black-forest-labs/FLUX.1-dev",
-    name: "FLUX.1 Dev",
-    description: "Fotorealistik, mukammal yuzlar",
+    name: "FLUX Dev",
+    description: "Fotorealistik detallar",
     supportsEdit: false,
-    badge: "Pro",
-  },
-  {
-    id: "black-forest-labs/FLUX.1-Kontext-dev",
-    name: "FLUX Kontext",
-    description: "Rasm tahrirlash uchun eng zo'r",
-    supportsEdit: true,
-    badge: "Edit",
-  },
-  {
-    id: "Qwen/Qwen-Image",
-    name: "Qwen Image",
-    description: "Matn va yuzlarni aniq chizadi",
-    supportsEdit: false,
-  },
-  {
-    id: "Qwen/Qwen-Image-Edit",
-    name: "Qwen Edit",
-    description: "Aqlli rasm tahrirlash",
-    supportsEdit: true,
-    badge: "Edit",
+    provider: "hf",
   },
   {
     id: "stabilityai/stable-diffusion-3.5-large",
     name: "SD 3.5 Large",
-    description: "Boy kompozitsiya, badiiy",
+    description: "Boy kompozitsiya, art",
     supportsEdit: false,
-  },
-  {
-    id: "stabilityai/stable-diffusion-xl-base-1.0",
-    name: "SDXL",
-    description: "Klassik yuqori sifat",
-    supportsEdit: false,
-  },
-  {
-    id: "HiDream-ai/HiDream-I1-Full",
-    name: "HiDream I1",
-    description: "Kinolarcha realistik",
-    supportsEdit: false,
+    provider: "hf",
   },
 ];

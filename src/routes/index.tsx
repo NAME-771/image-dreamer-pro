@@ -3,16 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MODELS } from "@/lib/models";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Lumen AI — Rasm generatsiya va tahrirlash studiyasi" },
-      {
-        name: "description",
-        content:
-          "8 ta kuchli AI model bilan matndan rasm yarating yoki mavjud rasmni prompt orqali tahrirlang. Yuzlar mukammal, tarix saqlanadi.",
-      },
-    ],
-  }),
   component: Studio,
 });
 
@@ -25,7 +15,7 @@ type HistoryItem = {
   mode: "generate" | "edit";
 };
 
-const STORAGE_KEY = "lumen-history-v1";
+const STORAGE_KEY = "liquid-history-v1";
 
 function Studio() {
   const [prompt, setPrompt] = useState("");
@@ -34,7 +24,7 @@ function Studio() {
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<HistoryItem | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null); // data URL
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,7 +36,7 @@ function Studio() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 50)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 60)));
     } catch {}
   }, [history]);
 
@@ -56,7 +46,6 @@ function Studio() {
     [isEditMode],
   );
 
-  // Auto-switch to edit-capable model when user uploads an image
   useEffect(() => {
     if (isEditMode && !MODELS.find((m) => m.id === model)?.supportsEdit) {
       const first = MODELS.find((m) => m.supportsEdit);
@@ -79,6 +68,8 @@ function Studio() {
 
   const generate = async () => {
     if (!prompt.trim()) return;
+    const selected = MODELS.find((m) => m.id === model);
+    if (!selected) return;
     setLoading(true);
     setError(null);
     try {
@@ -92,7 +83,13 @@ function Studio() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, model, imageBase64, imageMime }),
+        body: JSON.stringify({
+          prompt,
+          model,
+          provider: selected.provider,
+          imageBase64,
+          imageMime,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { image } = (await res.json()) as { image: string };
@@ -116,104 +113,146 @@ function Studio() {
   const activeModelMeta = MODELS.find((m) => m.id === model);
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ background: "var(--gradient-mesh), var(--color-background)" }}>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Ambient noise */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none opacity-40"
+        style={{ background: "var(--grain)" }}
+      />
+
       {/* Header */}
-      <header className="relative z-10 border-b border-border/40 backdrop-blur-xl bg-background/40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-black text-primary-foreground shadow-lg"
-              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-            >
-              ✦
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Lumen AI</h1>
-              <p className="text-xs text-muted-foreground">Rasm studiyasi · 8 model</p>
-            </div>
+      <header className="relative z-10 border-b border-border">
+        <div className="max-w-[1400px] mx-auto px-8 py-5 flex items-center justify-between">
+          <div className="flex items-baseline gap-3">
+            <span className="font-serif text-3xl italic tracking-tight">Liquid</span>
+            <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+              AI · Image Studio
+            </span>
           </div>
-          <div className="text-xs text-muted-foreground hidden sm:block">
-            {history.length} ta rasm tarixda
+          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <span className="hidden md:inline">{history.length} works archived</span>
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              Unlimited via gateway
+            </span>
           </div>
         </div>
       </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-8 grid lg:grid-cols-[1fr_320px] gap-6">
-        {/* Left: canvas + composer */}
-        <section className="space-y-6">
+      <main className="relative z-10 max-w-[1400px] mx-auto px-8 py-10 grid lg:grid-cols-[1fr_340px] gap-8">
+        {/* LEFT */}
+        <section className="space-y-6 min-w-0">
+          {/* Hero title */}
+          <div className="flex items-end justify-between pb-2">
+            <h1 className="font-serif text-5xl md:text-6xl leading-[0.95] tracking-tight text-balance">
+              {isEditMode ? (
+                <>
+                  Refine what <em>exists</em>.
+                </>
+              ) : (
+                <>
+                  Compose an <em>image</em>.
+                </>
+              )}
+            </h1>
+            <div className="hidden md:block text-xs text-muted-foreground max-w-[220px] text-right leading-relaxed">
+              {isEditMode
+                ? "Rasm yuklandi. Prompt yozing va model uni tahrirlaydi."
+                : "Prompt yozing. Yoki rasm tashlab tahrir rejimiga o'ting."}
+            </div>
+          </div>
+
           {/* Canvas */}
           <div
-            className="relative rounded-3xl border border-border/60 overflow-hidden aspect-square lg:aspect-[4/3] bg-card"
-            style={{ boxShadow: "var(--shadow-card)" }}
+            className="relative rounded-md border border-border overflow-hidden aspect-[4/3] bg-card"
+            style={{ boxShadow: "var(--shadow-panel)" }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={onDrop}
           >
             {loading && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 backdrop-blur-md bg-background/60">
-                <div
-                  className="w-16 h-16 rounded-full animate-spin"
-                  style={{
-                    background: "conic-gradient(from 0deg, transparent, var(--color-primary))",
-                    mask: "radial-gradient(circle, transparent 55%, black 56%)",
-                  }}
-                />
-                <p className="text-sm text-muted-foreground">
-                  {isEditMode ? "Rasm tahrirlanmoqda…" : "Yaratilmoqda…"}
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 backdrop-blur-sm bg-background/70">
+                <div className="flex items-center gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  {isEditMode ? "Refining" : "Rendering"}
                 </p>
               </div>
             )}
 
             {current ? (
-              <img src={current.image} alt={current.prompt} className="w-full h-full object-contain" />
+              <img
+                src={current.image}
+                alt={current.prompt}
+                className="w-full h-full object-contain"
+              />
             ) : uploadedImage ? (
-              <img src={uploadedImage} alt="upload" className="w-full h-full object-contain opacity-90" />
+              <img
+                src={uploadedImage}
+                alt="upload"
+                className="w-full h-full object-contain opacity-90"
+              />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 gap-3">
-                <div
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center text-3xl"
-                  style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-                >
-                  🎨
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-10">
+                <div className="font-serif text-8xl italic text-muted-foreground/30 select-none">
+                  ⌘
                 </div>
-                <h2 className="text-2xl font-bold">Nima chizamiz?</h2>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  Prompt yozing yoki rasmni tashlang — biz uni tahrir qilamiz. Yuzlar mukammal, natija zo'r.
+                <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                  Empty canvas
                 </p>
               </div>
             )}
 
             {uploadedImage && (
-              <div className="absolute top-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/80 backdrop-blur border border-border text-xs font-medium">
-                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                Tahrir rejimi
+              <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-background/90 backdrop-blur border border-border text-[10px] uppercase tracking-[0.2em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                Edit mode
                 <button
                   onClick={() => setUploadedImage(null)}
-                  className="ml-1 text-muted-foreground hover:text-foreground"
+                  className="ml-2 text-muted-foreground hover:text-foreground"
+                  aria-label="clear upload"
                 >
-                  ✕
+                  ×
                 </button>
               </div>
+            )}
+
+            {current && !loading && (
+              <a
+                href={current.image}
+                download={`liquid-${current.id}.png`}
+                className="absolute bottom-4 right-4 px-3 py-1.5 bg-background/90 backdrop-blur border border-border text-[10px] uppercase tracking-[0.2em] hover:bg-accent hover:text-accent-foreground transition"
+              >
+                Download
+              </a>
             )}
           </div>
 
           {error && (
-            <div className="rounded-xl border border-destructive/50 bg-destructive/10 text-destructive-foreground px-4 py-3 text-sm">
+            <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
           {/* Composer */}
-          <div
-            className="rounded-3xl border border-border/60 bg-card p-4 space-y-3"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-start gap-3">
+          <div className="border border-border bg-card" style={{ boxShadow: "var(--shadow-soft)" }}>
+            <div className="flex items-stretch">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 w-12 h-12 rounded-2xl border border-border bg-secondary hover:bg-accent hover:text-accent-foreground transition flex items-center justify-center text-xl"
+                className="shrink-0 px-5 border-r border-border hover:bg-secondary transition text-muted-foreground hover:text-foreground"
                 title="Rasm yuklash"
+                aria-label="attach image"
               >
-                📎
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.98 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
               </button>
               <input
                 ref={fileInputRef}
@@ -230,62 +269,65 @@ function Studio() {
                 }}
                 placeholder={
                   isEditMode
-                    ? "Rasmni qanday tahrir qilay? (masalan: fonni tunga o'zgartir)"
-                    : "Rasmingizni tasvirlab bering… (Cmd/Ctrl + Enter)"
+                    ? "Describe the edit — e.g. change the background to a candlelit interior"
+                    : "Describe your image — e.g. a portrait in the style of a Dutch old master"
                 }
                 rows={2}
-                className="flex-1 bg-transparent resize-none outline-none text-sm placeholder:text-muted-foreground leading-relaxed py-3"
+                className="flex-1 bg-transparent resize-none outline-none text-sm placeholder:text-muted-foreground/70 leading-relaxed py-4 px-5"
               />
               <button
                 onClick={generate}
                 disabled={loading || !prompt.trim()}
-                className="shrink-0 h-12 px-6 rounded-2xl font-semibold text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition hover:brightness-110"
-                style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
+                className="shrink-0 px-8 bg-accent text-accent-foreground font-medium text-sm uppercase tracking-[0.15em] disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110 transition"
               >
-                {loading ? "…" : isEditMode ? "Tahrirlash" : "Yaratish"}
+                {loading ? "…" : isEditMode ? "Refine" : "Render"}
               </button>
+            </div>
+            <div className="border-t border-border px-5 py-2.5 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              <span>⌘/Ctrl + Enter</span>
+              <span>{prompt.length} chars</span>
             </div>
           </div>
 
           {/* Models */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Model tanlang
+            <div className="flex items-baseline justify-between mb-4">
+              <h3 className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Engine
               </h3>
               {isEditMode && (
-                <span className="text-xs text-accent">Faqat tahrirlaydiganlari ko'rsatilmoqda</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-accent">
+                  Edit-capable only
+                </span>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border">
               {activeModels.map((m) => {
                 const active = m.id === model;
                 return (
                   <button
                     key={m.id}
                     onClick={() => setModel(m.id)}
-                    className={`text-left p-3 rounded-2xl border transition relative overflow-hidden ${
+                    className={`text-left p-4 transition relative ${
                       active
-                        ? "border-primary bg-primary/10"
-                        : "border-border/60 bg-card hover:border-border"
+                        ? "bg-accent/10 text-foreground"
+                        : "bg-card hover:bg-secondary text-foreground/90"
                     }`}
                   >
-                    {active && (
-                      <div
-                        className="absolute inset-0 opacity-20 pointer-events-none"
-                        style={{ background: "var(--gradient-primary)" }}
-                      />
-                    )}
-                    <div className="relative flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">{m.name}</span>
+                    {active && <span className="absolute top-0 left-0 right-0 h-px bg-accent" />}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-serif text-lg">{m.name}</span>
                       {m.badge && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/20 text-accent font-medium">
+                        <span className="text-[9px] uppercase tracking-[0.15em] text-accent">
                           {m.badge}
                         </span>
                       )}
                     </div>
-                    <p className="relative text-xs text-muted-foreground leading-snug">
+                    <p className="text-[11px] text-muted-foreground leading-snug">
                       {m.description}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/50 mt-2">
+                      {m.provider === "lovable" ? "Gateway" : "Hugging Face"}
                     </p>
                   </button>
                 );
@@ -294,30 +336,27 @@ function Studio() {
           </div>
         </section>
 
-        {/* Right: history */}
-        <aside
-          className="rounded-3xl border border-border/60 bg-card p-4 h-fit lg:sticky lg:top-6"
-          style={{ boxShadow: "var(--shadow-card)" }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Tarix</h3>
+        {/* RIGHT — Archive */}
+        <aside className="border border-border bg-card h-fit lg:sticky lg:top-6" style={{ boxShadow: "var(--shadow-panel)" }}>
+          <div className="border-b border-border px-5 py-4 flex items-center justify-between">
+            <h3 className="font-serif text-xl">Archive</h3>
             {history.length > 0 && (
               <button
                 onClick={() => {
-                  if (confirm("Tarixni tozalaysizmi?")) setHistory([]);
+                  if (confirm("Clear all?")) setHistory([]);
                 }}
-                className="text-xs text-muted-foreground hover:text-destructive"
+                className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground hover:text-destructive"
               >
-                Tozalash
+                Clear
               </button>
             )}
           </div>
           {history.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              Hali rasmlar yo'q. Birinchisini yarating ✨
+            <p className="text-xs text-muted-foreground text-center py-16 px-6 font-serif italic">
+              "Nothing yet. Begin."
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-px bg-border max-h-[75vh] overflow-y-auto">
               {history.map((h) => (
                 <button
                   key={h.id}
@@ -326,16 +365,22 @@ function Studio() {
                     setPrompt(h.prompt);
                     setModel(h.model);
                   }}
-                  className={`group relative aspect-square rounded-xl overflow-hidden border transition ${
-                    current?.id === h.id ? "border-primary" : "border-border/60 hover:border-border"
+                  className={`group relative aspect-square overflow-hidden bg-card transition ${
+                    current?.id === h.id ? "ring-1 ring-accent ring-inset z-10" : ""
                   }`}
                 >
-                  <img src={h.image} alt={h.prompt} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/0 to-transparent opacity-0 group-hover:opacity-100 transition flex flex-col justify-end p-2">
-                    <p className="text-[10px] line-clamp-2 text-left">{h.prompt}</p>
+                  <img
+                    src={h.image}
+                    alt={h.prompt}
+                    className="w-full h-full object-cover transition group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent opacity-0 group-hover:opacity-100 transition flex flex-col justify-end p-2.5">
+                    <p className="text-[10px] line-clamp-3 text-left text-foreground/90 leading-tight">
+                      {h.prompt}
+                    </p>
                   </div>
                   {h.mode === "edit" && (
-                    <span className="absolute top-1 right-1 text-[9px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-semibold">
+                    <span className="absolute top-1.5 right-1.5 text-[8px] uppercase tracking-[0.15em] px-1.5 py-0.5 bg-background/80 text-accent backdrop-blur">
                       Edit
                     </span>
                   )}
@@ -344,14 +389,27 @@ function Studio() {
             </div>
           )}
           {activeModelMeta && (
-            <div className="mt-4 pt-4 border-t border-border/60 text-xs">
-              <div className="text-muted-foreground mb-1">Faol model</div>
-              <div className="font-semibold">{activeModelMeta.name}</div>
-              <div className="text-muted-foreground mt-0.5">{activeModelMeta.description}</div>
+            <div className="border-t border-border px-5 py-4">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">
+                Active engine
+              </div>
+              <div className="font-serif text-lg">{activeModelMeta.name}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {activeModelMeta.description}
+              </div>
             </div>
           )}
         </aside>
       </main>
+
+      <footer className="relative z-10 border-t border-border mt-10">
+        <div className="max-w-[1400px] mx-auto px-8 py-6 flex items-center justify-between text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+          <span>© Liquid AI Studio</span>
+          <span className="font-serif italic normal-case tracking-normal text-sm">
+            "Details are not details. They make the design."
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
