@@ -18,24 +18,24 @@ export const Route = createFileRoute("/api/generate")({
           if (!prompt || !model) return new Response("prompt & model required", { status: 400 });
 
           const hf = new InferenceClient(token);
-          let blob: Blob;
+          let result: Blob | string;
 
           if (imageBase64) {
-            // Image edit path
             const bin = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
-            const inputBlob = new Blob([bin], { type: imageMime || "image/png" });
-            blob = await hf.imageToImage({
+            const inputBlob = new Blob([bin as BlobPart], { type: imageMime || "image/png" });
+            result = await hf.imageToImage({
               model,
               inputs: inputBlob,
               parameters: { prompt },
             });
           } else {
-            blob = await hf.textToImage({
+            result = await hf.textToImage({
               model,
               inputs: prompt,
               parameters: { num_inference_steps: 30 },
             });
           }
+          const blob = result as Blob;
 
           const buf = new Uint8Array(await blob.arrayBuffer());
           let binary = "";
